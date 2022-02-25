@@ -1,8 +1,24 @@
-library('ProjectTemplate')
-load.project()
+# Exploritory anlaysis ---------------------------------------------------------
 
-for (dataset in project.info$data)
-{
-  message(paste('Showing top 5 rows of', dataset))
-  print(head(get(dataset)))
-}
+# View first few entries
+head(Reisby)
+
+# View how data is stored
+str(Reisby)
+
+# Type
+class(Reisby)
+typeof(Reisby)
+
+# View first few entries
+head(reisby)
+
+# View how data is stored
+str(reisby)
+
+# View scatterplot matrix
+pairs(reisby)
+
+# Size of data
+dim(reisby)
+
