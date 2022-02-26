@@ -33,5 +33,5 @@ reisby$id = match((reisby$id), groups)
 
 # Split data into test and train // note groups are not split as train[200] is 53
 # and test[201] = 54
-reisby.train = reisby[1:200,]
-reisby.test = reisby[201:dim(reisby)[1],]
+reisby.train.scaled = reisby.scaled[1:200,]
+reisby.test.scaled = reisby.scaled[201:dim(reisby)[1],]
