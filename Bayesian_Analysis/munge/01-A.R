@@ -31,6 +31,15 @@ for (i in 1:dim(reisby)[1]){
 # Re-encode id vector
 reisby$id = match((reisby$id), groups)
 
+# Test and train
+reisby.train = reisby[1:200,]
+reisby.test = reisby[201:dim(reisby)[1],]
+
+# Scaled and normalized data frame
+reisby.scaled = reisby
+reisby.scaled$lnimi = scale(reisby.scaled$lnimi)
+reisby.scaled$lndmi = scale(reisby.scaled$lndmi)
+
 # Split data into test and train // note groups are not split as train[200] is 53
 # and test[201] = 54
 reisby.train.scaled = reisby.scaled[1:200,]

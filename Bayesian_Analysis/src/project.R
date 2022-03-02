@@ -36,7 +36,7 @@ jags_data <- list(Y = reisby.train$hd, X = reisby.train[,3:7], X_pred = reisby.t
                   N = length(reisby.train$hd), M = ncol(reisby.train[,3:7]), L = nrow(reisby.test[,3:7]))
 model <- jags.model(textConnection(model_string), data = jags_data, n.chains = 4)
 update(model, n.iter = 10000)
-samples <- coda.samples(model = model, variable.names = c("beta", "tau", "Y_pred"), n.iter = 1000, thin = 5)
+samples <- coda.samples(model = model, variable.names = c("Y_pred"), n.iter = 1000, thin = 5)
 
 # Note // the following section is mcmc diagnostics, these have been completed and the tuning parameters above
 # Have been changed accordingly
@@ -66,13 +66,46 @@ mcmc_mean = summary(samples)$statistics[,1]
 mcmc_mean[1:50] = as.integer(round(mcmc_mean[1:50], 0))
 
 
-# Scaled and normalized data frame
-reisby.scaled = reisby
-reisby.scaled$lnimi = scale(reisby.scaled$lnimi)
-reisby.scaled$lndmi = scale(reisby.scaled$lndmi)
-
 jags_data <- list(Y = reisby.train$hd, X = reisby.train[,3:7], X_pred = reisby.test[,3:7], 
                   N = length(reisby.train$hd), M = ncol(reisby.train[,3:7]), L = nrow(reisby.test[,3:7]))
 model <- jags.model(textConnection(model_string), data = jags_data, n.chains = 4)
 update(model, n.iter = 10000)
 samples <- coda.samples(model = model, variable.names = c("beta", "tau", "Y_pred"), n.iter = 1000, thin = 5)
+
+###############################################################
+modelstring="
+  model {
+  b0 ~ dnorm(0, 1E-6)
+  
+  for (j in 1:p) {
+    b[j] ~ dnorm(0, 1E-6)
+  }
+  
+  tau ~ dgamma(0.001, 0.001)
+  sd = pow(tau, -0.5)
+  
+  for (i in 1:N) {
+    y[i] ~ dnorm(mu[i], tau)
+  mu[i] = b0 + inprod(b, x[i,])
+  }
+}"
+
+y = reisby$lndmi
+x = reisby[,-4]
+x = x[,-1]
+
+jags_data = list(y=y, x=x, N=nrow(x), p=ncol(x))
+model = jags.model(textConnection(modelstring), data=jags_data, n.chains=4)
+update(model, n.iter=1000)
+th = 100 # Thinning interval
+samples = coda.samples(model,
+                       variable.names=c("b0", "sd", "b"), thin=th,
+                       n.iter=th*1000)
+
+gelman.diag(samples, multivariate = FALSE)
+crosscorr.plot(samples)
+effectiveSize(samples)
+plot(samples, auto.layout=FALSE, density=FALSE)
+summary(samples)
+HPDinterval(samples[[1]])
+mcmc_mean = summary(samples)$statistics[,1]

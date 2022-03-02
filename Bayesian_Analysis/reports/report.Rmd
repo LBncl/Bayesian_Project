@@ -4,3 +4,58 @@ author: "Lloyd Bates"
 date: "25/02/2022"
 output: pdf_document
 ---
+
+```{r load, warning=TRUE, include=FALSE}
+# Libraries used
+library(ProjectTemplate)
+library(tidyverse)
+library(rjags)
+library(coda)
+library(ggplot2)
+# Please set the working directory to the root folder "Bayesian_Analysis"
+setwd("C:/Users/Lloyd Bates/Desktop/Postgraduate Newcastle Data Science MSc/Bayesian Data Analysis/Project/Bayesian_Analysis")
+load.project()
+```
+
+# Data Description
+## Original Data
+```{r originalData}
+# First few entries of data
+head(as.data.frame(Reisby))
+```
+The data set contains 250 observations of 7 variables: "id","hd","week","lnimi" "lndmi","female","reactive_depression". Here one of the main variables that we will be observing is "lnimi" which represents the log concentration the antidepressant drug Imipramine (IMI) in a patients blood. The question of this report is observe the effectiveness of this drug on a patients depression.
+
+## Data Preprocessing
+### 01-A File
+Before analysis can be completed it is important to format the data correctly, one detail about the data set is that each row is not a unique person in total there are:  
+```{r groups}
+# Number of different patients
+groups = unique(reisby$id)
+length(groups)
+
+# Re-encode id vector
+reisby$id = match((reisby$id), groups)
+```
+This number means that each person was not measured every week. As well the id column has been modified to go from 1:66. Further data transformations have taken place including: converting the week column to a 0/1 representing a placebo week or a week where the drug was administered, also, the Hamilton depression index has been encoded to show the 4 possible levels of depression. Finally, for both a normalized and raw format, the data as been split into test and train data. Note groups are not split as train[200] is 53 and test[201] = 54
+
+```{r newData}
+head(reisby)
+```
+
+Next the structure of the data frame can be viewed to see if how the variables are stored: 
+
+```{r str}
+# View how data is stored
+str(reisby)
+```
+
+# Exploritory Data Analysis
+Firstly to view any relationships between the variables the sactterplotmattrix can be viewed: 
+
+```{r pairs}
+# View scatterplot matrix
+pairs(reisby)
+```
+
+# Regression to Predict Efficacy of Imipramine
+Fit a multiple linear regression to the reisby data set and report the posterior mean and a 95% HPD interval for each parameter. To test the model different priors will be used with both a standardized and raw version of the data. We will use the lnimi as the response.
