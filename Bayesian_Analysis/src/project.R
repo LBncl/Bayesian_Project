@@ -121,3 +121,16 @@ par(mfrow=c(3,3))
 for (i in 1:7) {
   acf(mcmc_mat[,i], lag.max=60, main=colnames(mcmc_mat)[i])
 }
+
+y = as.numeric(scale(reisby$lndmi))
+x = reisby[,-4]
+x = x[,-1]
+x[3] = scale(x[3])
+
+jags_data = list(y=y, x=x, N=nrow(x), p=ncol(x))
+model = jags.model(textConnection(modelstring), data=jags_data, n.chains=4)
+update(model, n.iter=1000)
+th = 32
+samples = coda.samples(model,
+                       variable.names=c("b0", "sd", "b"), thin=th,
+                       n.iter=th*1000)

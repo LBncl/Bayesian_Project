@@ -117,7 +117,7 @@ From the acf plots it is clear that lag 30 is still significant, so a thinning i
 jags_data = list(y=y, x=x, N=nrow(x), p=ncol(x))
 model = jags.model(textConnection(modelstring), data=jags_data, n.chains=4)
 update(model, n.iter=1000)
-th = 32
+th = 35
 samples = coda.samples(model,
                        variable.names=c("b0", "sd", "b"), thin=th,
                        n.iter=th*1000)
@@ -132,6 +132,7 @@ plot(samples, auto.layout=FALSE, density=FALSE)
 
 ## Summary
 From the mcmc output the following summaries can be found:
+
 ```{r DIC1, echo=FALSE}
 dic.samples(model, n.iter=th*1000, thin=th)
 mcmc_mean = summary(samples)$statistics[,1]
@@ -140,13 +141,117 @@ table['mean'] = mcmc_mean[1:5]
 table
 ```
 
-Posterior density plots based on MCMC output: 
+Posterior density plots based on MCMC output:
+These show that the posterior distributions are approximately normal.
+
 ```{r density1}
-par(mfrow=c(3,3))
+par(mfrow=c(2,3))
 for (i in 1:5) {
     d = density(mcmc_mat[,i]) 
     plot(d, main=colnames(mcmc_mat)[i])
 }
 ```
 
+## Standarized Data
+To try help improve the performance of our model the data will be scaled using the the scale() function which will transform the data so that the standard deviation is 1 and the mean is 0. The prior distribution and the JAGS and R code required to run the analysis are the same as the previous model.
+
+```{r stanardized, echo=FALSE}
+y = as.numeric(scale(reisby$lndmi))
+x = reisby[,-4]
+x = x[,-1]
+x[3] = scale(x[3])
+
+jags_data = list(y=y, x=x, N=nrow(x), p=ncol(x))
+model = jags.model(textConnection(modelstring), data=jags_data, n.chains=4)
+update(model, n.iter=1000)
+th = 32
+samples = coda.samples(model,
+                       variable.names=c("b0", "sd", "b"), thin=th,
+                       n.iter=th*1000)
+```
+
+We can view how well this new model fits the data:
+
+```{r gelmanPlot}
+gelman.plot(samples)
+```
+
+## Summary
+From the mcmc output the following summaries can be found:
+```{r DIC2, echo=FALSE}
+dic.samples(model, n.iter=th*1000, thin=th)
+mcmc_mean = summary(samples)$statistics[,1]
+table = as.data.frame(HPDinterval(samples[[1]])[1:5,])
+table['mean'] = mcmc_mean[1:5]
+table
+```
+
+Posterior density plots based on MCMC output:
 These show that the posterior distributions are approximately normal.
+
+```{r density2, echo=FALSE}
+par(mfrow=c(2,3))
+for (i in 1:5) {
+    d = density(mcmc_mat[,i]) 
+    plot(d, main=colnames(mcmc_mat)[i])
+}
+```
+Only differences in DIC are important, its absolute size is irrelevant so we can clearly see that the model with the standardized data offers no greater level of statistical accuracy. There is still no clear agreement on what constitutes a considerable difference in DIC but single digit differences can be easily disregarded as important.
+
+## Differing Priors
+Since the MCMC diagnostics showed no difference between standardized and raw data one other way to try improve the statistical model is to try different prior distributions, the half-Cauchy allows extreme values to occur
+more frequently which may allow the model to cope better with some of the values which are further from the mean. Note the standarized data will be used for this new prior.
+
+## JAGS Code
+```{r JAGS3, include=FALSE}
+modelstring="
+  model {
+  b0 ~ dnorm(0, 1E-6)
+  for (j in 1:p) {
+    b[j] ~ dnorm(0, 1E-6)
+  }
+  tau ~ dt(0,1/9,1) T(0,)
+  sd = pow(tau, -0.5)
+  for (i in 1:N) {
+    y[i] ~ dnorm(mu[i], tau)
+  mu[i] = b0 + inprod(b, x[i,])
+  }
+}"
+```
+
+## R Code
+```{r code3, include=FALSE}
+y = as.numeric(scale(reisby$lndmi))
+x = reisby[,-4]
+x = x[,-1]
+x[3] = scale(x[3])
+
+jags_data = list(y=y, x=x, N=nrow(x), p=ncol(x))
+model = jags.model(textConnection(modelstring), data=jags_data, n.chains=4)
+update(model, n.iter=1000)
+th = 20
+samples = coda.samples(model,
+                       variable.names=c("b0", "b"), thin=th,
+                       n.iter=th*1000)
+```
+
+## Summary
+From the mcmc output the following summaries can be found:
+```{r DIC3, echo=FALSE}
+dic.samples(model, n.iter=th*1000, thin=th)
+mcmc_mean = summary(samples)$statistics[,1]
+table = as.data.frame(HPDinterval(samples[[1]])[1:5,])
+table['mean'] = mcmc_mean[1:5]
+table
+```
+
+```{r density3, echo=FALSE}
+par(mfrow=c(2,3))
+for (i in 1:5) {
+    d = density(mcmc_mat[,i]) 
+    plot(d, main=colnames(mcmc_mat)[i])
+}
+```
+
+## Intrepretation
+With all of the models retrieving negative means for some of the parameters this could be explained by having a lower starting concentration of the precursor(lnimi) means a lower concentration of lndmi in the blood.
