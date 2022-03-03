@@ -59,3 +59,94 @@ pairs(reisby)
 
 # Regression to Predict Efficacy of Imipramine
 Fit a multiple linear regression to the reisby data set and report the posterior mean and a 95% HPD interval for each parameter. To test the model different priors will be used with both a standardized and raw version of the data. We will use the lnimi as the response.
+
+## Jags Code
+For the first multiple linear regression the JAGS code is: 
+
+```{r JAGS1}
+modelstring="
+  model {
+    k = 10^3
+    b0 ~ dnorm(0, k)
+    
+    for (j in 1:p) {
+      b[j] ~ dnorm(0, k)
+    }
+    
+    tau ~ dgamma(0.001, 0.001)
+    sd = pow(tau, -0.5)
+    
+    for (i in 1:N) {
+      y[i] ~ dnorm(mu[i], tau)
+      mu[i] = b0 + inprod(b, x[i,])
+    }
+}"
+```
+
+### Prior Selection
+For the first model the prior used will be a uninformed, normal distribution as to make b’s to be almost flat.
+
+## R Code
+```{r code1}
+y = reisby$lndmi
+x = reisby[,-4]
+x = x[,-1]
+
+jags_data = list(y=y, x=x, N=nrow(x), p=ncol(x))
+model = jags.model(textConnection(modelstring), data=jags_data, n.chains=4)
+update(model, n.iter=1000)
+samples = coda.samples(model, variable.names=c("b0", "sd", "b"),n.iter=1000)
+```
+
+## MCMC Diagnostics
+Note for this first model only will the diagnostics be shown, it can be assumed that in all following models the same diagnostics will be used.
+
+```{r diag1}
+# ACF
+mcmc_mat = as.matrix(samples[[1]])
+par(mfrow=c(3,3))
+for (i in 1:7) {
+  acf(mcmc_mat[,i], lag.max=60, main=colnames(mcmc_mat)[i])
+}
+crosscorr.plot(samples)
+```
+
+From the acf plots it is clear that lag 30 is still significant, so a thinning interval of around 32 should be sufficient, now the new JAGS code will look like: 
+
+```{r JAGS2}
+jags_data = list(y=y, x=x, N=nrow(x), p=ncol(x))
+model = jags.model(textConnection(modelstring), data=jags_data, n.chains=4)
+update(model, n.iter=1000)
+th = 32
+samples = coda.samples(model,
+                       variable.names=c("b0", "sd", "b"), thin=th,
+                       n.iter=th*1000)
+
+# View how well the chains mixed
+gelman.diag(samples, multivariate = FALSE)
+
+# Trace 
+par(mfrow=c(3,3))
+plot(samples, auto.layout=FALSE, density=FALSE)
+```
+
+## Summary
+From the mcmc output the following summaries can be found:
+```{r DIC1, echo=FALSE}
+dic.samples(model, n.iter=th*1000, thin=th)
+mcmc_mean = summary(samples)$statistics[,1]
+table = as.data.frame(HPDinterval(samples[[1]])[1:5,])
+table['mean'] = mcmc_mean[1:5]
+table
+```
+
+Posterior density plots based on MCMC output: 
+```{r density1}
+par(mfrow=c(3,3))
+for (i in 1:5) {
+    d = density(mcmc_mat[,i]) 
+    plot(d, main=colnames(mcmc_mat)[i])
+}
+```
+
+These show that the posterior distributions are approximately normal.

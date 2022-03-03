@@ -75,19 +75,20 @@ samples <- coda.samples(model = model, variable.names = c("beta", "tau", "Y_pred
 ###############################################################
 modelstring="
   model {
-  b0 ~ dnorm(0, 1E-6)
-  
-  for (j in 1:p) {
-    b[j] ~ dnorm(0, 1E-6)
-  }
-  
-  tau ~ dgamma(0.001, 0.001)
-  sd = pow(tau, -0.5)
-  
-  for (i in 1:N) {
-    y[i] ~ dnorm(mu[i], tau)
-  mu[i] = b0 + inprod(b, x[i,])
-  }
+    k = 10^3
+    b0 ~ dnorm(0, k)
+    
+    for (j in 1:p) {
+      b[j] ~ dnorm(0, k)
+    }
+    
+    tau ~ dgamma(0.001, 0.001)
+    sd = pow(tau, -0.5)
+    
+    for (i in 1:N) {
+      y[i] ~ dnorm(mu[i], tau)
+      mu[i] = b0 + inprod(b, x[i,])
+    }
 }"
 
 y = reisby$lndmi
@@ -97,7 +98,7 @@ x = x[,-1]
 jags_data = list(y=y, x=x, N=nrow(x), p=ncol(x))
 model = jags.model(textConnection(modelstring), data=jags_data, n.chains=4)
 update(model, n.iter=1000)
-th = 100 # Thinning interval
+th = 32
 samples = coda.samples(model,
                        variable.names=c("b0", "sd", "b"), thin=th,
                        n.iter=th*1000)
@@ -109,3 +110,14 @@ plot(samples, auto.layout=FALSE, density=FALSE)
 summary(samples)
 HPDinterval(samples[[1]])
 mcmc_mean = summary(samples)$statistics[,1]
+# Trace 
+par(mfrow=c(3,3))
+plot(samples, auto.layout=FALSE, density=FALSE)
+dic = dic.samples(model, n.iter=th*1000, thin=th)
+
+# ACF
+mcmc_mat = as.matrix(samples[[1]])
+par(mfrow=c(3,3))
+for (i in 1:7) {
+  acf(mcmc_mat[,i], lag.max=60, main=colnames(mcmc_mat)[i])
+}
